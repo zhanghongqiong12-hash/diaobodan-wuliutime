@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海外仓调拨单列表 - 预览</title>
+    
+    <!-- 引入 Tailwind CSS (用于样式) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 React 和 ReactDOM -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    
+    <!-- 引入 Babel (用于在浏览器中实时编译 React JSX 语法) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+    
+    <style>
+        /* 简单的全局样式，防止出现滚动条闪烁等问题 */
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        
+        /* 自定义滚动条样式 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #dcdfe6; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #c0c4cc; }
+    </style>
+</head>
+<body>
+    <!-- React 应用的挂载点 -->
+    <div id="root"></div>
+
+    <!-- 核心业务逻辑代码 -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- 1. 图标组件封装 ---
+        const createIcon = (paths) => ({ size = 24, className = '' }) => (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            {paths}
+          </svg>
+        );
+
+        // 基础图标
+        const ChevronDown = createIcon(<path d="m6 9 6 6 6-6"/>);
+        const Calendar = createIcon(<><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></>);
+        const Settings = createIcon(<><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></>);
+        const Home = createIcon(<><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>);
+        const Box = createIcon(<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>);
+        const Truck = createIcon(<><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></>);
+        const AlertCircle = createIcon(<><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>);
+        const FileText = createIcon(<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></>);
+        const BarChart2 = createIcon(<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>);
+        const Users = createIcon(<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>);
+        const Smartphone = createIcon(<><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></>);
+        const Printer = createIcon(<><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></>);
+        const User = createIcon(<><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>);
+        const Menu = createIcon(<><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></>);
+        const X = createIcon(<><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></>);
+        
+        // 日期控件专属方向箭头
+        const ChevronLeft = createIcon(<polyline points="15 18 9 12 15 6"/>);
+        const ChevronRight = createIcon(<polyline points="9 18 15 12 9 6"/>);
+        const ChevronsLeft = createIcon(<><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></>);
+        const ChevronsRight = createIcon(<><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></>);
+
+
+        // --- 2. 自定义高级日期选择器 (参考提供的高级样式) ---
+        const CustomDateRangePicker = ({ value, onChange }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const [viewDate, setViewDate] = useState(new Date());
+            const [startDate, setStartDate] = useState(null);
+            const [endDate, setEndDate] = useState(null);
+            const [hoverDate, setHoverDate] = useState(null);
+            const popoverRef = useRef(null);
+
+            // 点击外部关闭弹窗
+            useEffect(() => {
+                const handleOutsideClick = (e) => {
+                    if (popoverRef.current && !popoverRef.current.contains(e.target)) {
+                        setIsOpen(false);
+                    }
+                };
+                document.addEventListener('mousedown', handleOutsideClick);
+                return () => document.removeEventListener('mousedown', handleOutsideClick);
+            }, []);
+
+            // 格式化日期辅助函数
+            const formatDateStr = (date) => {
+                if (!date) return '';
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            };
+
+            // 快捷键逻辑
+            const applyShortcut = (type) => {
+                const today = new Date();
+                let start = new Date();
+                let end = new Date();
+
+                switch (type) {
+                    case 'today': break;
+                    case 'yesterday': 
+                        start.setDate(today.getDate() - 1);
+                        end.setDate(today.getDate() - 1);
+                        break;
+                    case 'last3': start.setDate(today.getDate() - 2); break;
+                    case 'last7': start.setDate(today.getDate() - 6); break;
+                    case 'last15': start.setDate(today.getDate() - 14); break;
+                    case 'last30': start.setDate(today.getDate() - 29); break;
+                    case 'last90': start.setDate(today.getDate() - 89); break;
+                }
+                const s = formatDateStr(start);
+                const e = formatDateStr(end);
+                setStartDate(s);
+                setEndDate(e);
+                onChange(s === e ? s : `${s} 至 ${e}`);
+                setViewDate(end);
+                setIsOpen(false);
+            };
+
+            // 日期点击逻辑 (支持选单个日期，也支持选范围)
+            const handleDayClick = (dateStr) => {
+                if (!startDate || (startDate && endDate)) {
+                    // 开始全新选择
+                    setStartDate(dateStr);
+                    setEndDate(null);
+                } else {
+                    // 补全结束日期
+                    let s = startDate;
+                    let e = dateStr;
+                    if (dateStr < startDate) {
+                        s = dateStr;
+                        e = startDate;
+                    }
+                    setStartDate(s);
+                    setEndDate(e);
+                    onChange(s === e ? s : `${s} 至 ${e}`);
+                    setIsOpen(false);
+                }
+            };
+
+            // 构建日历数据
+            const viewYear = viewDate.getFullYear();
+            const viewMonth = viewDate.getMonth();
+            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+            const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay();
+            const prevMonthDays = new Date(viewYear, viewMonth, 0).getDate();
+
+            const calendarCells = [];
+            // 填充上月尾部
+            for (let i = firstDayIndex - 1; i >= 0; i--) {
+                calendarCells.push({ dateStr: formatDateStr(new Date(viewYear, viewMonth - 1, prevMonthDays - i)), day: prevMonthDays - i, isCurrentMonth: false });
+            }
+            // 填充当月
+            for (let i = 1; i <= daysInMonth; i++) {
+                calendarCells.push({ dateStr: formatDateStr(new Date(viewYear, viewMonth, i)), day: i, isCurrentMonth: true });
+            }
+            // 填充下月头部，凑齐 42 格 (6行x7天)
+            const remaining = 42 - calendarCells.length;
+            for (let i = 1; i <= remaining; i++) {
+                calendarCells.push({ dateStr: formatDateStr(new Date(viewYear, viewMonth + 1, i)), day: i, isCurrentMonth: false });
+            }
+
+            const todayStr = formatDateStr(new Date());
+
+            // 样式辅助判定
+            const isSelected = (dateStr) => dateStr === startDate || dateStr === endDate;
+            const isInRange = (dateStr) => {
+                if (startDate && endDate) return dateStr > startDate && dateStr < endDate;
+                if (startDate && hoverDate && !endDate) {
+                    const min = startDate < hoverDate ? startDate : hoverDate;
+                    const max = startDate > hoverDate ? startDate : hoverDate;
+                    return dateStr > min && dateStr < max;
+                }
+                return false;
+            };
+
+            return (
+                <div className="relative w-full text-left font-sans" ref={popoverRef}>
+                    {/* 模拟的 Input 触发器 */}
+                    <div 
+                        className={`w-full border rounded px-2 py-1.5 text-sm cursor-pointer flex items-center justify-between transition-colors ${isOpen ? 'border-blue-500' : 'border-gray-300'} bg-white hover:border-blue-400`}
+                        onClick={() => setIsOpen(!isOpen)}
+                    >
+                        <span className={`truncate ${value ? "text-gray-700" : "text-gray-400"}`}>
+                            {value || '选择到达时间'}
+                        </span>
+                        <Calendar size={14} className="text-gray-400 shrink-0 ml-1" />
+                    </div>
+                    
+                    {/* 弹出的选择器面板 */}
+                    {isOpen && (
+                        <div className="absolute top-full right-0 mt-2 bg-white shadow-[0_4px_16px_rgba(0,0,0,0.12)] border border-gray-100 flex z-[100] rounded-sm select-none" style={{ width: '380px' }}>
+                            {/* 左侧快捷选项 */}
+                            <div className="w-[100px] border-r border-gray-100 py-2 flex flex-col text-[13px]">
+                                {[
+                                    { label: '今天', type: 'today' },
+                                    { label: '昨天', type: 'yesterday' },
+                                    { label: '最近3天', type: 'last3' },
+                                    { label: '最近7天', type: 'last7' },
+                                    { label: '最近15天', type: 'last15' },
+                                    { label: '最近30天', type: 'last30' },
+                                    { label: '最近90天', type: 'last90' },
+                                ].map(item => (
+                                    <div 
+                                        key={item.type}
+                                        className="px-4 py-2 hover:bg-[#f2f6fc] hover:text-[#409EFF] cursor-pointer text-gray-600 transition-colors"
+                                        onClick={() => applyShortcut(item.type)}
+                                    >
+                                        {item.label}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* 右侧日历面板 */}
+                            <div className="flex-1 p-3">
+                                {/* 顶部控制头 */}
+                                <div className="flex justify-between items-center mb-3 text-gray-400 px-1">
+                                    <div className="flex space-x-2 cursor-pointer">
+                                        <span onClick={() => setViewDate(new Date(viewYear - 1, viewMonth, 1))} className="hover:text-[#409EFF]"><ChevronsLeft size={16}/></span>
+                                        <span onClick={() => setViewDate(new Date(viewYear, viewMonth - 1, 1))} className="hover:text-[#409EFF]"><ChevronLeft size={16}/></span>
+                                    </div>
+                                    <div className="text-[14px] text-gray-700 font-medium tracking-wide">{viewYear} 年 {viewMonth + 1} 月</div>
+                                    <div className="flex space-x-2 cursor-pointer">
+                                        <span onClick={() => setViewDate(new Date(viewYear, viewMonth + 1, 1))} className="hover:text-[#409EFF]"><ChevronRight size={16}/></span>
+                                        <span onClick={() => setViewDate(new Date(viewYear + 1, viewMonth, 1))} className="hover:text-[#409EFF]"><ChevronsRight size={16}/></span>
+                                    </div>
+                                </div>
+
+                                {/* 星期行 */}
+                                <div className="grid grid-cols-7 text-center mb-2 border-b border-gray-100 pb-2">
+                                    {['日','一','二','三','四','五','六'].map(d => (
+                                        <div key={d} className="text-gray-500 text-[12px]">{d}</div>
+                                    ))}
+                                </div>
+
+                                {/* 日期网格 */}
+                                <div className="grid grid-cols-7 text-center text-[13px] gap-y-[4px]">
+                                    {calendarCells.map((cell, idx) => {
+                                        const selected = isSelected(cell.dateStr);
+                                        const inRange = isInRange(cell.dateStr);
+                                        const isToday = cell.dateStr === todayStr;
+
+                                        let baseClasses = "h-[30px] flex items-center justify-center cursor-pointer relative ";
+                                        let textClasses = "z-10 w-[24px] h-[24px] flex items-center justify-center rounded-sm transition-colors ";
+                                        
+                                        // 处理文字样式
+                                        if (!cell.isCurrentMonth) textClasses += "text-gray-300 ";
+                                        else if (selected) textClasses += "bg-[#409EFF] text-white ";
+                                        else if (isToday) textClasses += "text-[#409EFF] font-bold ";
+                                        else textClasses += "text-gray-600 hover:text-[#409EFF] ";
+
+                                        // 处理多选连线背景样式 (浅蓝色 #f2f6fc)
+                                        let bgClasses = "absolute inset-0 ";
+                                        if (inRange) {
+                                            bgClasses += "bg-[#f2f6fc] ";
+                                        } else if (selected && startDate && (endDate || hoverDate)) {
+                                            const currentEnd = endDate || hoverDate;
+                                            if (cell.dateStr === startDate && currentEnd > startDate) bgClasses += "bg-[#f2f6fc] left-1/2 w-1/2 ";
+                                            else if (cell.dateStr === startDate && currentEnd < startDate) bgClasses += "bg-[#f2f6fc] right-1/2 w-1/2 ";
+                                            else if (cell.dateStr === currentEnd && currentEnd > startDate) bgClasses += "bg-[#f2f6fc] right-1/2 w-1/2 ";
+                                            else if (cell.dateStr === currentEnd && currentEnd < startDate) bgClasses += "bg-[#f2f6fc] left-1/2 w-1/2 ";
+                                            else bgClasses += "hidden ";
+                                        } else {
+                                            bgClasses += "hidden ";
+                                        }
+
+                                        return (
+                                            <div 
+                                                key={idx} 
+                                                className={baseClasses}
+                                                onClick={() => handleDayClick(cell.dateStr)}
+                                                onMouseEnter={() => setHoverDate(cell.dateStr)}
+                                                onMouseLeave={() => setHoverDate(null)}
+                                            >
+                                                <div className={bgClasses}></div>
+                                                <div className={textClasses}>{cell.day}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+
+        // --- 3. 主应用组件代码 ---
+        const App = () => {
+          // 模拟列表数据
+          const tableData = [
+            { id: 1, orderNo: 'HY26030300002', skuCount: 1, status: '已完成', planArrive: '2026-03-20', carrier: '这是一个承运商', isLinked: '否', importEntity: '无', createTime: '2026-03-03 15:07:10', finishTime: '2026-03-03 15:08:20' },
+            { id: 2, orderNo: 'HY26030300001', skuCount: 1, status: '部分发货-已完成', planArrive: '2026-03-20', carrier: '这是一个承运商', isLinked: '否', importEntity: '无', createTime: '2026-03-03 15:01:39', finishTime: '2026-03-03 15:05:52' },
+            { id: 3, orderNo: 'HY26012000005', skuCount: 1, status: '已完成', planArrive: '2026-01-31', carrier: '5', isLinked: '否', importEntity: '无', createTime: '2026-01-20 17:21:50', finishTime: '2026-01-20 17:23:23' },
+            { id: 4, orderNo: 'HY26012000004', skuCount: 1, status: '已完成', planArrive: '2026-01-31', carrier: '1', isLinked: '否', importEntity: '无', createTime: '2026-01-20 11:02:28', finishTime: '2026-01-20 11:15:18' },
+            { id: 5, orderNo: 'HY26012000003', skuCount: 0, status: '部分发货', planArrive: '2027-01-27', carrier: 's', isLinked: '否', importEntity: '无', createTime: '2026-01-20 11:00:32', finishTime: '--' },
+            { id: 6, orderNo: 'HY26012000002', skuCount: 1, status: '已完成', planArrive: '2027-01-27', carrier: 'wu', isLinked: '否', importEntity: '无', createTime: '2026-01-20 10:42:41', finishTime: '2026-01-20 10:59:50' },
+            { id: 7, orderNo: 'HY26012000001', skuCount: 1, status: '已完成', planArrive: '2027-01-01', carrier: '无', isLinked: '否', importEntity: '无', createTime: '2026-01-20 10:30:07', finishTime: '2026-01-20 10:31:25' },
+            { id: 8, orderNo: 'HY26011200011', skuCount: 1, status: '已完成', planArrive: '2026-01-18', carrier: 'Fanka-Online', isLinked: '是', importEntity: 'Online', createTime: '2026-01-12 16:14:50', finishTime: '2026-01-12 16:15:25' },
+            { id: 9, orderNo: 'HY26011200010', skuCount: 1, status: '已完成', planArrive: '2026-01-19', carrier: 'Fanka-Online', isLinked: '是', importEntity: 'Online', createTime: '2026-01-12 16:10:55', finishTime: '2026-01-12 16:12:07' },
+            { id: 10, orderNo: 'HY26011200009', skuCount: 1, status: '已完成', planArrive: '2026-01-19', carrier: 'VIVAIA-株式会社', isLinked: '是', importEntity: '株式会社STARLINK', createTime: '2026-01-12 16:02:43', finishTime: '2026-01-12 16:03:13' },
+          ];
+
+          const [activeDropdownId, setActiveDropdownId] = useState(null);
+
+          // 弹窗相关的状态
+          const [isModalVisible, setIsModalVisible] = useState(false);
+          const [selectedOrder, setSelectedOrder] = useState(null);
+          const [dispatchNotes, setDispatchNotes] = useState([]);
+
+          const toggleDropdown = (id) => {
+            setActiveDropdownId(activeDropdownId === id ? null : id);
+          };
+
+          // 打开弹窗并生成该调拨单对应的模拟发货单数据
+          const openMarkTimeModal = (order) => {
+            setSelectedOrder(order);
+            // 模拟生成2条发货单数据
+            setDispatchNotes([
+              { id: `DN-${order.orderNo}-01`, logisticsProvider: '', arrivalTime: '' },
+              { id: `DN-${order.orderNo}-02`, logisticsProvider: '', arrivalTime: '' }
+            ]);
+            setIsModalVisible(true);
+            setActiveDropdownId(null); // 关闭下拉菜单
+          };
+
+          // 处理表格输入框变化
+          const handleNoteChange = (id, field, value) => {
+            setDispatchNotes(prev => prev.map(note => 
+              note.id === id ? { ...note, [field]: value } : note
+            ));
+          };
+
+          // 保存操作
+          const handleSaveTime = () => {
+            setIsModalVisible(false);
+          };
+
+          return (
+            <div className="flex h-screen bg-[#f3f4f6] font-sans text-sm text-gray-700">
+              {/* 侧边栏 */}
+              <aside className="w-56 bg-[#00A870] text-white flex flex-col shrink-0 overflow-y-auto">
+                <div className="p-4 text-xl font-bold flex items-center border-b border-[#009660]">
+                  {/* Logo 占位 */}
+                  <div className="w-6 h-6 bg-white/20 rounded mr-2"></div>
+                  库存管理
+                </div>
+                <nav className="flex-1 py-4">
+                  <NavItem icon={<Box size={16}/>} label="收货管理" />
+                  <NavItem icon={<Smartphone size={16}/>} label="PDA" />
+                  <NavItem icon={<Truck size={16}/>} label="发货管理" />
+                  <NavItem icon={<AlertCircle size={16}/>} label="异常还库管理" />
+                  <NavItem icon={<FileText size={16}/>} label="快递换单" />
+                  <NavItem icon={<AlertCircle size={16}/>} label="退件入库" />
+                  <NavItem icon={<Settings size={16}/>} label="基础信息" />
+                  <NavItem icon={<Box size={16}/>} label="上架管理" />
+                  <NavItem icon={<BarChart2 size={16}/>} label="统计" />
+                  <NavItem icon={<Box size={16}/>} label="渠道库存管理" />
+                  <NavItem icon={<Users size={16}/>} label="库存主体管理" />
+                  
+                  <div className="bg-[#009660]/50">
+                    <NavItem icon={<Truck size={16}/>} label="海外仓调拨" active={true} hasChildren={true} />
+                    <div className="pl-10 py-2 bg-[#1A4B6B]">
+                      <div className="flex items-center text-white text-xs cursor-pointer">
+                        <div className="w-1.5 h-1.5 rounded-full border border-white mr-2"></div>
+                        调拨单
+                      </div>
+                    </div>
+                    <div className="pl-10 py-2 hover:bg-white/10">
+                      <div className="flex items-center text-white/70 text-xs cursor-pointer">
+                        <div className="w-1.5 h-1.5 rounded-full border border-white/70 mr-2"></div>
+                        装箱出库
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <NavItem icon={<Truck size={16}/>} label="KA线下发货" />
+                  <NavItem icon={<Truck size={16}/>} label="经销商发货管理" />
+                  <NavItem icon={<Printer size={16}/>} label="RFID标签打印" />
+                </nav>
+              </aside>
+
+              {/* 右侧主体内容 */}
+              <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                {/* 顶部导航 */}
+                <header className="h-12 bg-white border-b flex items-center justify-between px-4 shrink-0 shadow-sm z-10">
+                  <div className="flex items-center text-gray-500 text-sm">
+                    <Menu size={18} className="mr-4 cursor-pointer" />
+                    <Home size={14} className="mr-2" /> 首页 <span className="mx-2">/</span> 仓库管理 <span className="mx-2">/</span> 海外仓调拨 <span className="mx-2">/</span> <span className="text-blue-500">调拨单 ×</span>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <span className="text-gray-400 text-xs">v1.26.03.02-1733</span>
+                    <span className="text-gray-600">基础配置</span>
+                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                      <User size={16} className="text-gray-500"/>
+                    </div>
+                  </div>
+                </header>
+
+                {/* 主要内容区 */}
+                <div className="flex-1 overflow-auto p-4 flex flex-col bg-white m-4 rounded shadow-sm">
+                  
+                  {/* 筛选区域 */}
+                  <div className="mb-4 space-y-3">
+                    <div className="grid grid-cols-4 gap-4">
+                      <div className="flex items-center">
+                        <label className="w-20 text-right mr-2 text-gray-600">站点：</label>
+                        <div className="flex-1 relative">
+                          <select className="w-full border border-gray-300 rounded px-2 py-1.5 appearance-none focus:outline-none focus:border-blue-500">
+                            <option>全部</option>
+                          </select>
+                          <ChevronDown size={14} className="absolute right-2 top-2.5 text-gray-400 pointer-events-none"/>
+                        </div>
+                      </div>
+                      <div className="flex items-center col-span-2">
+                        <label className="w-20 text-right mr-2 text-gray-600">调拨单号：</label>
+                        <div className="flex-1 flex">
+                          <input type="text" placeholder="请输入调拨单号" className="flex-1 border border-gray-300 rounded-l px-2 py-1.5 focus:outline-none focus:border-blue-500"/>
+                          <button className="bg-gray-100 border border-l-0 border-gray-300 px-3 rounded-r hover:bg-gray-200">批量</button>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <label className="w-20 text-right mr-2 text-gray-600">调出仓库：</label>
+                        <div className="flex-1 relative">
+                          <select className="w-full border border-gray-300 rounded px-2 py-1.5 appearance-none focus:outline-none focus:border-blue-500">
+                            <option>全部</option>
+                          </select>
+                          <ChevronDown size={14} className="absolute right-2 top-2.5 text-gray-400 pointer-events-none"/>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-4">
+                      <div className="flex items-center">
+                        <label className="w-20 text-right mr-2 text-gray-600">调入仓库：</label>
+                        <div className="flex-1 relative">
+                          <select className="w-full border border-gray-300 rounded px-2 py-1.5 appearance-none focus:outline-none focus:border-blue-500">
+                            <option>全部</option>
+                          </select>
+                          <ChevronDown size={14} className="absolute right-2 top-2.5 text-gray-400 pointer-events-none"/>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <label className="w-20 text-right mr-2 text-gray-600">发货状态：</label>
+                        <div className="flex-1 relative">
+                          <select className="w-full border border-gray-300 rounded px-2 py-1.5 appearance-none focus:outline-none focus:border-blue-500">
+                            <option>全部</option>
+                          </select>
+                          <ChevronDown size={14} className="absolute right-2 top-2.5 text-gray-400 pointer-events-none"/>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <label className="w-20 text-right mr-2 text-gray-600">承运商：</label>
+                        <input type="text" placeholder="供应商名称" className="flex-1 border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-500"/>
+                      </div>
+                      <div className="flex items-center">
+                        <label className="w-20 text-right mr-2 text-gray-600">计划到达：</label>
+                        <div className="flex-1 flex items-center border border-gray-300 rounded px-2 py-1.5 bg-white">
+                          <Calendar size={14} className="text-gray-400 mr-2"/>
+                          <input type="text" placeholder="开始日期" className="w-20 outline-none text-xs"/>
+                          <span className="mx-1 text-gray-300">-</span>
+                          <input type="text" placeholder="结束日期" className="w-20 outline-none text-xs"/>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-4">
+                      <div className="flex items-center">
+                        <label className="w-20 text-right mr-2 text-gray-600">创建时间：</label>
+                        <div className="flex-1 flex items-center border border-gray-300 rounded px-2 py-1.5 bg-white">
+                          <Calendar size={14} className="text-gray-400 mr-2"/>
+                          <input type="text" placeholder="开始日期" className="w-20 outline-none text-xs"/>
+                          <span className="mx-1 text-gray-300">-</span>
+                          <input type="text" placeholder="结束日期" className="w-20 outline-none text-xs"/>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <label className="w-20 text-right mr-2 text-gray-600">是否关联主体：</label>
+                        <div className="flex-1 relative">
+                          <select className="w-full border border-gray-300 rounded px-2 py-1.5 appearance-none focus:outline-none focus:border-blue-500">
+                            <option>全部</option>
+                          </select>
+                          <ChevronDown size={14} className="absolute right-2 top-2.5 text-gray-400 pointer-events-none"/>
+                        </div>
+                      </div>
+                      <div className="col-span-2 flex justify-end space-x-2 mt-2">
+                        <button className="bg-blue-500 text-white px-5 py-1.5 rounded hover:bg-blue-600">搜索</button>
+                        <button className="bg-amber-500 text-white px-5 py-1.5 rounded hover:bg-amber-600">重置</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 操作栏 */}
+                  <div className="mb-3">
+                    <button className="bg-[#409EFF] text-white px-4 py-1.5 rounded text-sm hover:bg-blue-500 transition-colors">
+                      新增
+                    </button>
+                  </div>
+
+                  {/* 数据表格 */}
+                  <div className="flex-1 border border-gray-200 rounded overflow-auto">
+                    <table className="w-full text-center whitespace-nowrap">
+                      <thead className="bg-[#f8f8f9] text-[#515a6e] sticky top-0 z-10">
+                        <tr>
+                          <th className="py-3 px-4 font-medium border-b border-gray-200 w-16">序号</th>
+                          <th className="py-3 px-4 font-medium border-b border-gray-200">海外仓调拨单</th>
+                          <th className="py-3 px-4 font-medium border-b border-gray-200">SKU种类</th>
+                          <th className="py-3 px-4 font-medium border-b border-gray-200">发货状态</th>
+                          <th className="py-3 px-4 font-medium border-b border-gray-200">计划到达时间</th>
+                          <th className="py-3 px-4 font-medium border-b border-gray-200">承运商</th>
+                          <th className="py-3 px-4 font-medium border-b border-gray-200">是否关联主体</th>
+                          <th className="py-3 px-4 font-medium border-b border-gray-200">进口报关主体</th>
+                          <th className="py-3 px-4 font-medium border-b border-gray-200">创建时间</th>
+                          <th className="py-3 px-4 font-medium border-b border-gray-200">完成时间</th>
+                          <th className="py-3 px-4 font-medium border-b border-gray-200">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-[#606266]">
+                        {tableData.map((row, index) => (
+                          <tr key={row.id} className="hover:bg-blue-50/50 transition-colors">
+                            <td className="py-3 px-4 border-b border-gray-100">{index + 1}</td>
+                            <td className="py-3 px-4 border-b border-gray-100">{row.orderNo}</td>
+                            <td className="py-3 px-4 border-b border-gray-100">{row.skuCount}</td>
+                            <td className="py-3 px-4 border-b border-gray-100">{row.status}</td>
+                            <td className="py-3 px-4 border-b border-gray-100">{row.planArrive}</td>
+                            <td className="py-3 px-4 border-b border-gray-100 max-w-[150px] truncate">{row.carrier}</td>
+                            <td className="py-3 px-4 border-b border-gray-100">{row.isLinked}</td>
+                            <td className="py-3 px-4 border-b border-gray-100">{row.importEntity}</td>
+                            <td className="py-3 px-4 border-b border-gray-100">{row.createTime}</td>
+                            <td className="py-3 px-4 border-b border-gray-100">{row.finishTime}</td>
+                            <td className="py-3 px-4 border-b border-gray-100">
+                              <div className="flex items-center justify-center space-x-2 text-[#2d8cf0]">
+                                <button className="hover:underline">查看</button>
+                                <button className="hover:underline">导出</button>
+                                <button className="hover:underline">操作记录</button>
+                                
+                                {/* 更多 操作下拉 */}
+                                <div className="relative">
+                                  <button 
+                                    className="hover:underline flex items-center"
+                                    onClick={() => toggleDropdown(row.id)}
+                                    onBlur={() => setTimeout(() => setActiveDropdownId(null), 200)} 
+                                  >
+                                    更多 <ChevronDown size={12} className="ml-1" />
+                                  </button>
+                                  
+                                  {activeDropdownId === row.id && (
+                                    <div className="absolute right-0 top-full mt-1 w-28 bg-white border border-blue-100 shadow-md rounded-sm z-50 text-xs py-1 text-left"
+                                         onMouseDown={(e) => e.preventDefault()} 
+                                    >
+                                      <div className="px-3 py-1.5 hover:bg-[#e6f7ff] text-[#2d8cf0] cursor-pointer">
+                                        发货单明细
+                                      </div>
+                                      <div className="px-3 py-1.5 hover:bg-[#e6f7ff] text-[#2d8cf0] cursor-pointer">
+                                        关联进口主体
+                                      </div>
+                                      <div 
+                                        className="px-3 py-1.5 hover:bg-[#e6f7ff] text-[#2d8cf0] cursor-pointer font-medium bg-blue-50/50"
+                                        onMouseDown={(e) => { 
+                                          e.preventDefault(); 
+                                          openMarkTimeModal(row);
+                                        }}
+                                      >
+                                        标记到货时间
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* 分页区域 */}
+                  <div className="mt-4 flex justify-center items-center text-gray-500">
+                    <div className="flex items-center space-x-1">
+                      <button className="px-2 py-1 border border-gray-200 rounded bg-white hover:bg-gray-50">‹</button>
+                      <button className="px-2.5 py-1 border border-[#00A870] text-white bg-[#00A870] rounded">1</button>
+                      <button className="px-2.5 py-1 border border-gray-200 rounded bg-white hover:bg-gray-50">2</button>
+                      <button className="px-2.5 py-1 border border-gray-200 rounded bg-white hover:bg-gray-50">3</button>
+                      <button className="px-2.5 py-1 border border-gray-200 rounded bg-white hover:bg-gray-50">4</button>
+                      <button className="px-2.5 py-1 border border-gray-200 rounded bg-white hover:bg-gray-50">5</button>
+                      <button className="px-2.5 py-1 border border-gray-200 rounded bg-white hover:bg-gray-50">6</button>
+                      <span className="px-1">...</span>
+                      <button className="px-2.5 py-1 border border-gray-200 rounded bg-white hover:bg-gray-50">20</button>
+                      <button className="px-2 py-1 border border-gray-200 rounded bg-white hover:bg-gray-50">›</button>
+                    </div>
+                    <span className="ml-4 mr-2">共 194 条</span>
+                    <select className="border border-gray-200 rounded px-2 py-1 bg-white outline-none">
+                      <option>10 条/页</option>
+                    </select>
+                  </div>
+                  
+                </div>
+              </main>
+
+              {/* 标记到货时间弹窗 */}
+              {isModalVisible && (
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+                  <div className="bg-white rounded shadow-xl w-[700px] flex flex-col overflow-hidden">
+                    {/* 弹窗头部 */}
+                    <div className="flex justify-between items-center px-5 py-3 border-b border-gray-200 bg-gray-50">
+                      <h3 className="text-[15px] font-medium text-gray-800">标记到货时间 - {selectedOrder?.orderNo}</h3>
+                      <button onClick={() => setIsModalVisible(false)} className="text-gray-400 hover:text-gray-500">
+                        <X size={20} />
+                      </button>
+                    </div>
+                    
+                    {/* 弹窗内容：发货单列表 */}
+                    <div className="p-5 min-h-[350px] max-h-[60vh] overflow-y-visible">
+                      <table className="w-full text-center border-collapse border border-gray-200">
+                        <thead className="bg-[#f8f8f9] text-[#515a6e]">
+                          <tr>
+                            <th className="py-2.5 px-3 font-medium border-b border-r border-gray-200 w-[25%]">发货单号</th>
+                            <th className="py-2.5 px-3 font-medium border-b border-r border-gray-200 w-[25%]">发货物流商</th>
+                            <th className="py-2.5 px-3 font-medium border-b border-gray-200 w-[50%]">到达时间</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-[#606266]">
+                          {dispatchNotes.map((note) => (
+                            <tr key={note.id} className="hover:bg-blue-50/30">
+                              <td className="py-3 px-3 border-b border-r border-gray-200 text-gray-700">{note.id}</td>
+                              <td className="py-3 px-3 border-b border-r border-gray-200">
+                                <input 
+                                  type="text" 
+                                  placeholder="请输入物流商"
+                                  value={note.logisticsProvider}
+                                  onChange={(e) => handleNoteChange(note.id, 'logisticsProvider', e.target.value)}
+                                  className="w-full border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-500 text-sm"
+                                />
+                              </td>
+                              <td className="py-3 px-3 border-b border-gray-200">
+                                {/* 替换为我们新封装的日期选择器组件 */}
+                                <CustomDateRangePicker 
+                                  value={note.arrivalTime} 
+                                  onChange={(val) => handleNoteChange(note.id, 'arrivalTime', val)}
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    {/* 弹窗底部操作 */}
+                    <div className="px-5 py-3 border-t border-gray-200 flex justify-end space-x-3 bg-gray-50 mt-auto">
+                      <button 
+                        onClick={() => setIsModalVisible(false)}
+                        className="px-4 py-1.5 border border-gray-300 rounded text-gray-600 hover:bg-gray-100 transition-colors"
+                      >
+                        取消
+                      </button>
+                      <button 
+                        onClick={handleSaveTime}
+                        className="px-4 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors shadow-sm"
+                      >
+                        确定
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        // 侧边栏导航项组件
+        const NavItem = ({ icon, label, active = false, hasChildren = false }) => (
+          <div className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-colors ${active ? 'bg-[#009660]/50' : 'hover:bg-white/10'}`}>
+            <div className="flex items-center text-sm">
+              <span className="mr-3 opacity-90">{icon}</span>
+              <span className={active ? 'font-medium' : ''}>{label}</span>
+            </div>
+            {hasChildren && (
+              <ChevronDown size={14} className={`transform ${active ? 'rotate-180' : ''} opacity-70`} />
+            )}
+          </div>
+        );
+
+        // 4. 将 React 渲染到页面的 root 节点
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
