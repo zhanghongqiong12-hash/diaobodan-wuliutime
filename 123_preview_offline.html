@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>海外仓调拨单列表 - 预览（离线）</title>
+  <style>
+    :root{
+      --bg: #f3f4f6;
+      --panel: #ffffff;
+      --muted: #6b7280;
+      --text: #374151;
+      --line: #e5e7eb;
+      --brand: #00A870;
+      --brand-2: #009660;
+      --primary: #3b82f6;
+      --warn: #f59e0b;
+      --link: #2d8cf0;
+      --shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.08);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);font-family:var(--font);color:var(--text);font-size:14px}
+    button, input, select{font-family:inherit}
+
+    /* Scrollbar (match 123.html) */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #dcdfe6; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #c0c4cc; }
+
+    /* Layout */
+    .app{display:flex;height:100vh;overflow:hidden}
+    .sidebar{width:224px;background:var(--brand);color:#fff;display:flex;flex-direction:column;overflow:auto}
+    .sidebar__title{padding:14px 16px;font-size:18px;font-weight:700;display:flex;align-items:center;border-bottom:1px solid var(--brand-2)}
+    .logo{width:22px;height:22px;background:rgba(255,255,255,.22);border-radius:6px;margin-right:10px}
+    .nav{padding:10px 0}
+    .navitem{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;user-select:none}
+    .navitem:hover{background:rgba(255,255,255,.10)}
+    .navitem--active{background:rgba(0,150,96,.50)}
+    .navitem__left{display:flex;align-items:center;gap:10px}
+    .navitem__label{font-size:13px}
+    .subblock{background:rgba(0,150,96,.35)}
+    .subitem{padding:8px 16px 8px 40px;font-size:12px;color:rgba(255,255,255,.85);cursor:pointer}
+    .subitem--active{background:#1A4B6B;color:#fff}
+    .subitem:hover{background:rgba(255,255,255,.10)}
+    .dot{width:7px;height:7px;border-radius:999px;border:1px solid currentColor;display:inline-block;margin-right:8px}
+
+    .main{flex:1;display:flex;flex-direction:column;min-width:0}
+    .topbar{height:48px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 16px;box-shadow:var(--shadow-sm);z-index:2}
+    .breadcrumb{display:flex;align-items:center;color:var(--muted);gap:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pill{color:var(--primary)}
+    .topbar__right{display:flex;align-items:center;gap:14px;color:#4b5563}
+    .avatar{width:32px;height:32px;border-radius:999px;background:#e5e7eb;display:grid;place-items:center}
+
+    .contentWrap{flex:1;overflow:auto;padding:16px}
+    .panel{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:16px;min-height:calc(100% - 0px)}
+    .filters{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
+    .grid{display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:16px}
+    .field{display:flex;align-items:center;min-width:0;min-height:34px}
+    .field label{width:80px;text-align:right;color:#4b5563;flex:0 0 auto;margin-right:8px;white-space:nowrap}
+    .control{flex:1;min-width:0}
+    .input,.select,.datewrap{width:100%;border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;outline:none;background:#fff;height:34px}
+    .input:focus,.select:focus,.datewrap:focus-within{border-color:var(--primary)}
+    .select{appearance:none;padding-right:28px}
+    .selectWrap{position:relative}
+    .chev{position:absolute;right:10px;top:50%;transform:translateY(-50%);opacity:.6}
+    .datewrap{display:flex;align-items:center;gap:8px;padding:6px 8px}
+    .datewrap input{border:0;outline:none;width:80px;font-size:12px;background:transparent}
+    .btnRow{display:flex;justify-content:flex-end;gap:8px;align-items:center;margin-top:8px}
+    .btn{border:1px solid transparent;border-radius:8px;padding:6px 20px;cursor:pointer;transition:.15s;height:34px;white-space:nowrap}
+    .btn--primary{background:var(--primary);color:#fff}
+    .btn--primary:hover{filter:brightness(.95)}
+    .btn--warn{background:var(--warn);color:#fff}
+    .btn--warn:hover{filter:brightness(.95)}
+    .btn--ghost{background:#f3f4f6;border-color:#d1d5db;color:#374151}
+    .btn--ghost:hover{background:#e5e7eb}
+    .btn--add{background:#409EFF;color:#fff}
+    .btn--add:hover{filter:brightness(.95)}
+    .btn--batch{padding:6px 12px}
+    .actionsBar{margin:10px 0}
+
+    /* Fix: "批量" button should never wrap in 调拨单号 input group */
+    .batchControl{display:flex;align-items:center;min-width:0}
+    .batchControl .input{flex:1;min-width:0;width:auto}
+    .batchControl .btn--batch{flex:0 0 auto;min-width:56px}
+
+    /* Responsive: avoid misalignment when window is narrow */
+    @media (max-width: 1200px){
+      .grid{grid-template-columns:repeat(2, minmax(0, 1fr))}
+    }
+    @media (max-width: 720px){
+      .grid{grid-template-columns:repeat(1, minmax(0, 1fr))}
+      .btnRow{justify-content:flex-start}
+    }
+
+    /* Table */
+    .tableWrap{border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:56vh}
+    table{border-collapse:collapse;width:100%;min-width:980px;text-align:center;white-space:nowrap}
+    thead th{position:sticky;top:0;background:#f8f8f9;color:#515a6e;border-bottom:1px solid var(--line);padding:12px 10px;font-weight:600;z-index:1}
+    tbody td{border-bottom:1px solid #f3f4f6;padding:12px 10px;color:#606266}
+    tbody tr:hover{background:rgba(59,130,246,.06)}
+    .truncate{max-width:150px;overflow:hidden;text-overflow:ellipsis}
+    .opLinks{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--link)}
+    .opLinks button{background:transparent;border:0;padding:0;color:inherit;cursor:pointer}
+    .opLinks button:hover{text-decoration:underline}
+    .more{position:relative}
+    .menu{position:absolute;right:0;top:100%;margin-top:6px;width:132px;background:#fff;border:1px solid #dbeafe;border-radius:8px;box-shadow:var(--shadow);font-size:12px;display:none;z-index:5}
+    .menu.open{display:block}
+    .menuItem{padding:8px 10px;cursor:pointer;color:var(--link);text-align:left}
+    .menuItem:hover{background:#e6f7ff}
+    .menuItem--highlight{background:rgba(59,130,246,.08);font-weight:600}
+
+    /* Pager */
+    .pager{margin-top:12px;display:flex;align-items:center;justify-content:center;color:var(--muted);gap:12px;flex-wrap:wrap}
+    .pagerBtns{display:flex;align-items:center;gap:6px}
+    .pbtn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;cursor:pointer}
+    .pbtn:hover{background:#f9fafb}
+    .pbtn--active{background:var(--brand);border-color:var(--brand);color:#fff}
+    .pager select{border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:#fff}
+
+    /* Modal */
+    .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.40);display:none;align-items:center;justify-content:center;z-index:50}
+    .backdrop.open{display:flex}
+    .modal{width:min(700px, calc(100vw - 24px));background:#fff;border-radius:12px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+    .modal__head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);background:#f9fafb}
+    .modal__title{font-size:15px;font-weight:600;color:#111827}
+    .iconBtn{border:0;background:transparent;cursor:pointer;color:#9ca3af}
+    .iconBtn:hover{color:#6b7280}
+    .modal__body{padding:16px;min-height:350px;max-height:60vh;overflow:visible}
+    .modal__foot{padding:12px 16px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;background:#f9fafb}
+    .miniTable{width:100%;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+    .miniTable table{min-width:0}
+    .miniTable thead th{position:static}
+    .miniTable td,.miniTable th{border-right:1px solid var(--line)}
+    .miniTable td:last-child,.miniTable th:last-child{border-right:0}
+    .miniInput{width:100%;border:1px solid #d1d5db;border-radius:8px;padding:7px 10px;outline:none}
+    .miniInput:focus{border-color:var(--primary)}
+
+    /* Date range picker (offline light version of CustomDateRangePicker) */
+    .drp{position:relative;width:100%;text-align:left;user-select:none}
+    .drp-trigger{
+      width:100%;
+      border:1px solid #d1d5db;
+      border-radius:8px;
+      padding:7px 10px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      background:#fff;
+      transition:.15s;
+      font-size:13px;
+      position:relative;
+    }
+    .drp-trigger:hover{border-color:#60a5fa}
+    .drp.open .drp-trigger{border-color:var(--primary)}
+    .drp-value{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .drp-value.muted{color:#9ca3af}
+    .drp-clear{
+      position:absolute;
+      right:32px;
+      top:50%;
+      transform:translateY(-50%);
+      width:16px;
+      height:16px;
+      border-radius:50%;
+      background:#c0c4cc;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition:.2s;
+      z-index:1;
+      color:#fff;
+      font-size:10px;
+    }
+    .drp-clear:hover{background:#909399}
+    .drp-trigger:hover .drp-clear:not(.hidden){display:flex}
+    .drp-pop{
+      position:fixed; /* avoid clipping by modal/table overflow */
+      top:0;
+      left:0;
+      width:min(380px, calc(100vw - 16px));
+      background:#fff;
+      border:1px solid #f3f4f6;
+      border-radius:8px;
+      box-shadow:0 4px 16px rgba(0,0,0,.12);
+      display:none;
+      z-index:1200;
+      overflow:hidden;
+    }
+    .drp.open .drp-pop{display:flex}
+    .drp-shortcuts{width:100px;border-right:1px solid #f3f4f6;padding:8px 0;font-size:13px}
+    .drp-shortcut{padding:8px 16px;color:#4b5563;cursor:pointer;transition:.12s}
+    .drp-shortcut:hover{background:#f2f6fc;color:#409EFF}
+    .drp-cal{flex:1;padding:12px}
+    .drp-calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;color:#9ca3af}
+    .drp-nav{display:flex;gap:8px}
+    .drp-navbtn{cursor:pointer}
+    .drp-navbtn:hover{color:#409EFF}
+    .drp-month{color:#374151;font-weight:600;font-size:14px;letter-spacing:.5px}
+    .drp-dow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;border-bottom:1px solid #f3f4f6;padding-bottom:8px;margin-bottom:8px;font-size:12px;color:#6b7280}
+    .drp-grid{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:13px;row-gap:4px}
+    .drp-cell{height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative}
+    .drp-bg{position:absolute;inset:0;display:none;background:#f2f6fc}
+    .drp-cell.inRange .drp-bg{display:block}
+    .drp-cell.halfLeft .drp-bg{display:block;left:50%;width:50%}
+    .drp-cell.halfRight .drp-bg{display:block;right:50%;width:50%}
+    .drp-day{
+      position:relative;
+      z-index:1;
+      width:24px;height:24px;
+      display:flex;align-items:center;justify-content:center;
+      border-radius:6px;
+      transition:.12s;
+      color:#4b5563;
+    }
+    .drp-day.other{color:#d1d5db}
+    .drp-day.today{color:#409EFF;font-weight:700}
+    .drp-day.selected{background:#409EFF;color:#fff}
+    .drp-cell:hover .drp-day:not(.selected):not(.other){color:#409EFF}
+
+    /* Small helpers */
+    .srOnly{position:absolute;left:-9999px}
+    .hidden{display:none!important}
+    svg{display:block}
+    .ic{opacity:.9}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar__title"><span class="logo"></span>库存管理</div>
+      <nav class="nav">
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="box"></span><span class="navitem__label">收货管理</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="phone"></span><span class="navitem__label">PDA</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="truck"></span><span class="navitem__label">发货管理</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="alert"></span><span class="navitem__label">异常还库管理</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="file"></span><span class="navitem__label">快递换单</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="alert"></span><span class="navitem__label">退件入库</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="settings"></span><span class="navitem__label">基础信息</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="box"></span><span class="navitem__label">上架管理</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="barchart"></span><span class="navitem__label">统计</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="box"></span><span class="navitem__label">渠道库存管理</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="users"></span><span class="navitem__label">库存主体管理</span></div>
+        </div>
+
+        <div class="subblock">
+          <div class="navitem navitem--active">
+            <div class="navitem__left"><span class="ic" data-icon="truck"></span><span class="navitem__label" style="font-weight:600">海外仓调拨</span></div>
+            <span class="ic" data-icon="chevDown"></span>
+          </div>
+          <div class="subitem subitem--active"><span class="dot"></span>调拨单</div>
+          <div class="subitem"><span class="dot" style="opacity:.7"></span>装箱出库</div>
+        </div>
+
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="truck"></span><span class="navitem__label">KA线下发货</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="truck"></span><span class="navitem__label">经销商发货管理</span></div>
+        </div>
+        <div class="navitem">
+          <div class="navitem__left"><span class="ic" data-icon="printer"></span><span class="navitem__label">RFID标签打印</span></div>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="breadcrumb">
+          <span class="ic" data-icon="menu"></span>
+          <span class="ic" data-icon="home"></span>
+          <span>首页</span><span>/</span><span>仓库管理</span><span>/</span><span>海外仓调拨</span><span>/</span><span class="pill">调拨单 ×</span>
+        </div>
+        <div class="topbar__right">
+          <span style="color:#9ca3af;font-size:12px;">v1.26.03.02-1733</span>
+          <span>基础配置</span>
+          <div class="avatar"><span class="ic" data-icon="user"></span></div>
+        </div>
+      </header>
+
+      <div class="contentWrap">
+        <section class="panel">
+          <div class="filters">
+            <div class="grid">
+              <div class="field">
+                <label>站点：</label>
+                <div class="control selectWrap">
+                  <select class="select" aria-label="站点"><option>全部</option></select>
+                  <span class="chev ic" data-icon="chevDown"></span>
+                </div>
+              </div>
+              <div class="field" style="grid-column: span 2;">
+                <label>调拨单号：</label>
+                <div class="control batchControl">
+                  <input class="input" placeholder="请输入调拨单号" style="border-top-right-radius:0;border-bottom-right-radius:0;" />
+                  <button class="btn btn--ghost btn--batch" style="border-top-left-radius:0;border-bottom-left-radius:0;border-left:0;">批量</button>
+                </div>
+              </div>
+              <div class="field">
+                <label>调出仓库：</label>
+                <div class="control selectWrap">
+                  <select class="select" aria-label="调出仓库"><option>全部</option></select>
+                  <span class="chev ic" data-icon="chevDown"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="field">
+                <label>调入仓库：</label>
+                <div class="control selectWrap">
+                  <select class="select" aria-label="调入仓库"><option>全部</option></select>
+                  <span class="chev ic" data-icon="chevDown"></span>
+                </div>
+              </div>
+              <div class="field">
+                <label>发货状态：</label>
+                <div class="control selectWrap">
+                  <select class="select" aria-label="发货状态"><option>全部</option></select>
+                  <span class="chev ic" data-icon="chevDown"></span>
+                </div>
+              </div>
+              <div class="field">
+                <label>承运商：</label>
+                <input class="input control" placeholder="供应商名称" />
+              </div>
+              <div class="field">
+                <label>计划到达：</label>
+                <div class="datewrap control" role="group" aria-label="计划到达">
+                  <span class="ic" data-icon="calendar"></span>
+                  <input placeholder="开始日期" />
+                  <span style="color:#d1d5db">-</span>
+                  <input placeholder="结束日期" />
+                </div>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="field">
+                <label>创建时间：</label>
+                <div class="datewrap control" role="group" aria-label="创建时间">
+                  <span class="ic" data-icon="calendar"></span>
+                  <input placeholder="开始日期" />
+                  <span style="color:#d1d5db">-</span>
+                  <input placeholder="结束日期" />
+                </div>
+              </div>
+              <div class="field">
+                <label>是否关联主体：</label>
+                <div class="control selectWrap">
+                  <select class="select" aria-label="是否关联主体"><option>全部</option></select>
+                  <span class="chev ic" data-icon="chevDown"></span>
+                </div>
+              </div>
+              <div class="btnRow" style="grid-column: span 2;">
+                <button class="btn btn--primary">搜索</button>
+                <button class="btn btn--warn">重置</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="actionsBar">
+            <button class="btn btn--add">新增</button>
+          </div>
+
+          <div class="tableWrap" aria-label="调拨单列表">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:64px">序号</th>
+                  <th>海外仓调拨单</th>
+                  <th>SKU种类</th>
+                  <th>发货状态</th>
+                  <th>计划到达时间</th>
+                  <th>承运商</th>
+                  <th>是否关联主体</th>
+                  <th>进口报关主体</th>
+                  <th>创建时间</th>
+                  <th>完成时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="pager">
+            <div class="pagerBtns">
+              <button class="pbtn" aria-label="上一页">‹</button>
+              <button class="pbtn pbtn--active">1</button>
+              <button class="pbtn">2</button>
+              <button class="pbtn">3</button>
+              <button class="pbtn">4</button>
+              <button class="pbtn">5</button>
+              <button class="pbtn">6</button>
+              <span style="padding:0 4px">...</span>
+              <button class="pbtn">20</button>
+              <button class="pbtn" aria-label="下一页">›</button>
+            </div>
+            <span>共 194 条</span>
+            <select aria-label="每页条数"><option>10 条/页</option></select>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="backdrop" id="backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <div class="modal__head">
+        <div class="modal__title" id="modalTitle">标记到货时间</div>
+        <button class="iconBtn" id="modalClose" aria-label="关闭"><span class="ic" data-icon="x"></span></button>
+      </div>
+      <div class="modal__body">
+        <div class="miniTable">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:25%">发货单号</th>
+                <th style="width:25%">发货物流商</th>
+                <th style="width:50%">到达时间</th>
+              </tr>
+            </thead>
+            <tbody id="notesBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button class="btn btn--ghost" id="modalCancel">取消</button>
+        <button class="btn btn--primary" id="modalOk">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ======= Inline icons (no dependencies) =======
+    const ICONS = {
+      chevDown: (s=16) => svg(s, '<path d="m6 9 6 6 6-6"/>'),
+      calendar: (s=16) => svg(s, '<rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/>'),
+      x: (s=18) => svg(s, '<line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>'),
+      settings: (s=16) => svg(s, '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'),
+      home: (s=16) => svg(s, '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'),
+      x: (s=18) => svg(s, '<line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>'),
+      box: (s=16) => svg(s, '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'),
+      truck: (s=16) => svg(s, '<path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>'),
+      alert: (s=16) => svg(s, '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
+      file: (s=16) => svg(s, '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>'),
+      barchart: (s=16) => svg(s, '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'),
+      users: (s=16) => svg(s, '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+      phone: (s=16) => svg(s, '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>'),
+      printer: (s=16) => svg(s, '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>'),
+      user: (s=16) => svg(s, '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
+      menu: (s=18) => svg(s, '<line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/>'),
+      x: (s=18) => svg(s, '<line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>'),
+      chevronLeft: (s=16) => svg(s, '<polyline points="15 18 9 12 15 6"/>'),
+      chevronRight: (s=16) => svg(s, '<polyline points="9 18 15 12 9 6"/>'),
+      chevronsLeft: (s=16) => svg(s, '<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>'),
+      chevronsRight: (s=16) => svg(s, '<polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>'),
+    };
+
+    function svg(size, inner){
+      return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+inner+'</svg>';
+    }
+
+    document.querySelectorAll('[data-icon]').forEach(el => {
+      const name = el.getAttribute('data-icon');
+      const html = (ICONS[name] ? ICONS[name](16) : '');
+      el.innerHTML = html;
+      el.style.display = 'inline-flex';
+      el.style.alignItems = 'center';
+      el.style.justifyContent = 'center';
+    });
+
+    // ======= Data =======
+    const tableData = [
+      { id: 1, orderNo: 'HY26030300002', skuCount: 1, status: '已完成', planArrive: '2026-03-20', carrier: '这是一个承运商', isLinked: '否', importEntity: '无', createTime: '2026-03-03 15:07:10', finishTime: '2026-03-03 15:08:20' },
+      { id: 2, orderNo: 'HY26030300001', skuCount: 1, status: '部分发货-已完成', planArrive: '2026-03-20', carrier: '这是一个承运商', isLinked: '否', importEntity: '无', createTime: '2026-03-03 15:01:39', finishTime: '2026-03-03 15:05:52' },
+      { id: 3, orderNo: 'HY26012000005', skuCount: 1, status: '已完成', planArrive: '2026-01-31', carrier: '5', isLinked: '否', importEntity: '无', createTime: '2026-01-20 17:21:50', finishTime: '2026-01-20 17:23:23' },
+      { id: 4, orderNo: 'HY26012000004', skuCount: 1, status: '已完成', planArrive: '2026-01-31', carrier: '1', isLinked: '否', importEntity: '无', createTime: '2026-01-20 11:02:28', finishTime: '2026-01-20 11:15:18' },
+      { id: 5, orderNo: 'HY26012000003', skuCount: 0, status: '部分发货', planArrive: '2027-01-27', carrier: 's', isLinked: '否', importEntity: '无', createTime: '2026-01-20 11:00:32', finishTime: '--' },
+      { id: 6, orderNo: 'HY26012000002', skuCount: 1, status: '已完成', planArrive: '2027-01-27', carrier: 'wu', isLinked: '否', importEntity: '无', createTime: '2026-01-20 10:42:41', finishTime: '2026-01-20 10:59:50' },
+      { id: 7, orderNo: 'HY26012000001', skuCount: 1, status: '已完成', planArrive: '2027-01-01', carrier: '无', isLinked: '否', importEntity: '无', createTime: '2026-01-20 10:30:07', finishTime: '2026-01-20 10:31:25' },
+      { id: 8, orderNo: 'HY26011200011', skuCount: 1, status: '已完成', planArrive: '2026-01-18', carrier: 'Fanka-Online', isLinked: '是', importEntity: 'Online', createTime: '2026-01-12 16:14:50', finishTime: '2026-01-12 16:15:25' },
+      { id: 9, orderNo: 'HY26011200010', skuCount: 1, status: '已完成', planArrive: '2026-01-19', carrier: 'Fanka-Online', isLinked: '是', importEntity: 'Online', createTime: '2026-01-12 16:10:55', finishTime: '2026-01-12 16:12:07' },
+      { id: 10, orderNo: 'HY26011200009', skuCount: 1, status: '已完成', planArrive: '2026-01-19', carrier: 'VIVAIA-株式会社', isLinked: '是', importEntity: '株式会社STARLINK', createTime: '2026-01-12 16:02:43', finishTime: '2026-01-12 16:03:13' },
+    ];
+
+    const tableBody = document.getElementById('tableBody');
+    const backdrop = document.getElementById('backdrop');
+    const modalTitle = document.getElementById('modalTitle');
+    const notesBody = document.getElementById('notesBody');
+
+    let openMenuId = null;
+    let currentOrder = null;
+    let dispatchNotes = [];
+
+    function renderTable(){
+      tableBody.innerHTML = '';
+      tableData.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td>${escapeHtml(row.orderNo)}</td>
+          <td>${row.skuCount}</td>
+          <td>${escapeHtml(row.status)}</td>
+          <td>${escapeHtml(row.planArrive)}</td>
+          <td class="truncate" title="${escapeAttr(row.carrier)}">${escapeHtml(row.carrier)}</td>
+          <td>${escapeHtml(row.isLinked)}</td>
+          <td>${escapeHtml(row.importEntity)}</td>
+          <td>${escapeHtml(row.createTime)}</td>
+          <td>${escapeHtml(row.finishTime)}</td>
+          <td>
+            <div class="opLinks">
+              <button type="button">查看</button>
+              <button type="button">导出</button>
+              <button type="button">操作记录</button>
+              <div class="more">
+                <button type="button" class="moreBtn" data-more="${row.id}">更多 <span class="ic" data-icon="chevDown" style="margin-left:4px"></span></button>
+                <div class="menu" id="menu-${row.id}" role="menu" aria-label="更多操作">
+                  <div class="menuItem" role="menuitem">发货单明细</div>
+                  <div class="menuItem" role="menuitem">关联进口主体</div>
+                  <div class="menuItem menuItem--highlight" role="menuitem" data-mark="${row.id}">标记到货时间</div>
+                </div>
+              </div>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+
+      // Re-inject icons created after dynamic HTML
+      tableBody.querySelectorAll('[data-icon]').forEach(el => {
+        const name = el.getAttribute('data-icon');
+        el.innerHTML = (ICONS[name] ? ICONS[name](12) : '');
+        el.style.display = 'inline-flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        el.style.opacity = '.9';
+      });
+    }
+
+    function openMenu(id){
+      closeMenu();
+      const menu = document.getElementById('menu-' + id);
+      if (!menu) return;
+      menu.classList.add('open');
+      openMenuId = id;
+    }
+    function closeMenu(){
+      if (openMenuId == null) return;
+      const menu = document.getElementById('menu-' + openMenuId);
+      if (menu) menu.classList.remove('open');
+      openMenuId = null;
+    }
+
+    function openModalFor(order){
+      currentOrder = order;
+      dispatchNotes = [
+        { id: `DN-${order.orderNo}-01`, logisticsProvider: '', arrivalTime: '' },
+        { id: `DN-${order.orderNo}-02`, logisticsProvider: '', arrivalTime: '' },
+      ];
+      drpState.clear();
+      renderNotes();
+      modalTitle.textContent = `标记到货时间 - ${order.orderNo}`;
+      backdrop.classList.add('open');
+    }
+    function closeModal(){
+      backdrop.classList.remove('open');
+      currentOrder = null;
+      dispatchNotes = [];
+    }
+
+    function renderNotes(){
+      notesBody.innerHTML = '';
+      dispatchNotes.forEach(note => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="padding:10px;border-bottom:1px solid var(--line);color:#374151">${escapeHtml(note.id)}</td>
+          <td style="padding:10px;border-bottom:1px solid var(--line)">
+            <input class="miniInput" placeholder="请输入物流商" value="${escapeAttr(note.logisticsProvider)}" data-note="${escapeAttr(note.id)}" data-field="logisticsProvider" />
+          </td>
+          <td style="padding:10px;border-bottom:1px solid var(--line)">
+            <div class="drp" data-note="${escapeAttr(note.id)}">
+              <div class="drp-trigger" role="button" tabindex="0" aria-label="选择到达时间">
+                <span class="drp-value ${note.arrivalTime ? '' : 'muted'}">${escapeHtml(note.arrivalTime || '选择到达时间')}</span>
+                <span class="drp-clear ${note.arrivalTime ? '' : 'hidden'}" data-drp-clear="${escapeAttr(note.id)}" title="清空日期"><span class="ic" data-icon="x"></span></span>
+                <span class="ic" data-icon="calendar"></span>
+              </div>
+              <div class="drp-pop" aria-hidden="true"></div>
+            </div>
+          </td>
+        `;
+        notesBody.appendChild(tr);
+        ensureDrpState(note.id);
+      });
+      notesBody.querySelectorAll('.drp [data-icon]').forEach(el => {
+        const name = el.getAttribute('data-icon');
+        el.innerHTML = (ICONS[name] ? ICONS[name](name === 'x' ? 12 : 14) : '');
+        el.style.display = 'inline-flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        if (name !== 'x') el.style.opacity = '.7';
+      });
+    }
+
+    function setNoteValue(noteId, field, value){
+      dispatchNotes = dispatchNotes.map(n => n.id === noteId ? ({...n, [field]: value}) : n);
+    }
+
+    function escapeHtml(str){
+      return String(str ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#39;");
+    }
+    function escapeAttr(str){ return escapeHtml(str).replaceAll('`','&#96;'); }
+
+    // ======= DatePicker (offline light, single-date) =======
+    const drpState = new Map(); // noteId -> { isOpen, viewDate, selectedDate }
+    function ensureDrpState(noteId){
+      if (drpState.has(noteId)) return drpState.get(noteId);
+      const st = { isOpen:false, viewDate:new Date(), selectedDate:null };
+      drpState.set(noteId, st);
+      return st;
+    }
+    function formatDateStr(date){
+      if (!date) return '';
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    function buildCalendarCells(viewDate){
+      const viewYear = viewDate.getFullYear();
+      const viewMonth = viewDate.getMonth();
+      const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+      const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay();
+      const prevMonthDays = new Date(viewYear, viewMonth, 0).getDate();
+      const calendarCells = [];
+      for (let i = firstDayIndex - 1; i >= 0; i--) {
+        calendarCells.push({ dateStr: formatDateStr(new Date(viewYear, viewMonth - 1, prevMonthDays - i)), day: prevMonthDays - i, isCurrentMonth: false });
+      }
+      for (let i = 1; i <= daysInMonth; i++) {
+        calendarCells.push({ dateStr: formatDateStr(new Date(viewYear, viewMonth, i)), day: i, isCurrentMonth: true });
+      }
+      const remaining = 42 - calendarCells.length;
+      for (let i = 1; i <= remaining; i++) {
+        calendarCells.push({ dateStr: formatDateStr(new Date(viewYear, viewMonth + 1, i)), day: i, isCurrentMonth: false });
+      }
+      return calendarCells;
+    }
+    function parseValueToDate(value){
+      const v = String(value || '').trim();
+      if (!v) return null;
+      // single date only (YYYY-MM-DD). If someone pasted a range, take the start.
+      if (v.includes('至')) return v.split('至')[0].trim() || null;
+      return v;
+    }
+    function setArrivalValue(noteId, dateStr){
+      const v = dateStr || '';
+      setNoteValue(noteId, 'arrivalTime', v);
+      const st = ensureDrpState(noteId);
+      st.selectedDate = dateStr || null;
+    }
+    function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+    function positionDrpPop(noteId){
+      const root = notesBody.querySelector(`.drp[data-note="${CSS.escape(noteId)}"]`);
+      if (!root) return;
+      const pop = root.querySelector('.drp-pop');
+      const trigger = root.querySelector('.drp-trigger');
+      if (!pop || !trigger) return;
+
+      const margin = 8;
+      const tr = trigger.getBoundingClientRect();
+
+      const popW = Math.min(380, window.innerWidth - margin * 2);
+      pop.style.width = popW + 'px';
+
+      // Ensure we measure after width applied
+      const popH = pop.offsetHeight || 320;
+      const spaceBelow = window.innerHeight - tr.bottom - margin;
+      const spaceAbove = tr.top - margin;
+      const openUp = spaceBelow < popH && spaceAbove > spaceBelow;
+
+      let top = openUp ? (tr.top - margin - popH) : (tr.bottom + margin);
+      top = clamp(top, margin, window.innerHeight - margin - popH);
+
+      let left = tr.right - popW;
+      left = clamp(left, margin, window.innerWidth - margin - popW);
+
+      pop.style.top = top + 'px';
+      pop.style.left = left + 'px';
+      pop.style.right = 'auto';
+      pop.style.bottom = 'auto';
+    }
+    function getOpenDrpNoteId(){
+      for (const [noteId, st] of drpState.entries()){
+        if (st && st.isOpen) return noteId;
+      }
+      return null;
+    }
+    function closeAllDrp(exceptNoteId=null){
+      drpState.forEach((st, key) => {
+        if (exceptNoteId && key === exceptNoteId) return;
+        st.isOpen = false;
+      });
+      notesBody.querySelectorAll('.drp.open').forEach(el => {
+        if (exceptNoteId && el.getAttribute('data-note') === exceptNoteId) return;
+        el.classList.remove('open');
+      });
+    }
+    function renderDrp(noteId){
+      const st = ensureDrpState(noteId);
+      const root = notesBody.querySelector(`.drp[data-note="${CSS.escape(noteId)}"]`);
+      if (!root) return;
+
+      const note = dispatchNotes.find(n => n.id === noteId);
+      const value = note ? note.arrivalTime : '';
+      const valEl = root.querySelector('.drp-value');
+      if (valEl){
+        valEl.textContent = value || '选择到达时间';
+        valEl.classList.toggle('muted', !value);
+      }
+      
+      const clearBtn = root.querySelector('.drp-clear');
+      if (clearBtn){
+        clearBtn.classList.toggle('hidden', !value);
+      }
+
+      const pop = root.querySelector('.drp-pop');
+      if (!pop || !st.isOpen) return;
+
+      const todayStr = formatDateStr(new Date());
+      const viewYear = st.viewDate.getFullYear();
+      const viewMonth = st.viewDate.getMonth();
+      const calendarCells = buildCalendarCells(st.viewDate);
+
+      const isSelected = (dateStr) => dateStr === st.selectedDate;
+
+      const shortcuts = [
+        { label: '今天', type: 'today' },
+        { label: '昨天', type: 'yesterday' },
+      ];
+
+      pop.innerHTML = `
+        <div class="drp-shortcuts">
+          ${shortcuts.map(s => `<div class="drp-shortcut" data-drp-action="shortcut" data-note="${escapeAttr(noteId)}" data-type="${s.type}">${s.label}</div>`).join('')}
+        </div>
+        <div class="drp-cal">
+          <div class="drp-calhead">
+            <div class="drp-nav">
+              <span class="drp-navbtn" data-drp-action="nav" data-note="${escapeAttr(noteId)}" data-nav="prevYear">${ICONS.chevronsLeft(16)}</span>
+              <span class="drp-navbtn" data-drp-action="nav" data-note="${escapeAttr(noteId)}" data-nav="prevMonth">${ICONS.chevronLeft(16)}</span>
+            </div>
+            <div class="drp-month">${viewYear} 年 ${viewMonth + 1} 月</div>
+            <div class="drp-nav">
+              <span class="drp-navbtn" data-drp-action="nav" data-note="${escapeAttr(noteId)}" data-nav="nextMonth">${ICONS.chevronRight(16)}</span>
+              <span class="drp-navbtn" data-drp-action="nav" data-note="${escapeAttr(noteId)}" data-nav="nextYear">${ICONS.chevronsRight(16)}</span>
+            </div>
+          </div>
+          <div class="drp-dow">${['日','一','二','三','四','五','六'].map(d => `<div>${d}</div>`).join('')}</div>
+          <div class="drp-grid">
+            ${calendarCells.map(cell => {
+              const selected = isSelected(cell.dateStr);
+              const isToday = cell.dateStr === todayStr;
+
+              let cellCls = 'drp-cell';
+
+              let dayCls = 'drp-day';
+              if (!cell.isCurrentMonth) dayCls += ' other';
+              else if (selected) dayCls += ' selected';
+              else if (isToday) dayCls += ' today';
+
+              return `
+                <div class="${cellCls}" data-drp-action="day" data-note="${escapeAttr(noteId)}" data-date="${cell.dateStr}">
+                  <div class="drp-bg"></div>
+                  <div class="${dayCls}">${cell.day}</div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+      positionDrpPop(noteId);
+    }
+
+    // ======= Events =======
+    document.addEventListener('click', (e) => {
+      const moreBtn = e.target.closest('.moreBtn');
+      if (moreBtn){
+        const id = Number(moreBtn.getAttribute('data-more'));
+        if (openMenuId === id) closeMenu();
+        else openMenu(id);
+        return;
+      }
+
+      const mark = e.target.closest('[data-mark]');
+      if (mark){
+        const id = Number(mark.getAttribute('data-mark'));
+        const order = tableData.find(x => x.id === id);
+        closeMenu();
+        if (order) openModalFor(order);
+        return;
+      }
+
+      // clear button
+      const clearBtn = e.target.closest('[data-drp-clear]');
+      if (clearBtn){
+        e.stopPropagation();
+        const noteId = clearBtn.getAttribute('data-drp-clear');
+        setArrivalValue(noteId, null);
+        renderNotes();
+        return;
+      }
+
+      // date picker trigger
+      const drpTrigger = e.target.closest('.drp-trigger');
+      if (drpTrigger){
+        const drp = drpTrigger.closest('.drp');
+        const noteId = drp ? drp.getAttribute('data-note') : null;
+        if (noteId){
+          const st = ensureDrpState(noteId);
+          if (!st.isOpen){
+            const note = dispatchNotes.find(n => n.id === noteId);
+            st.selectedDate = parseValueToDate(note ? note.arrivalTime : '');
+          }
+          st.isOpen = !st.isOpen;
+          closeAllDrp(st.isOpen ? noteId : null);
+          drp.classList.toggle('open', st.isOpen);
+          if (st.isOpen) renderDrp(noteId);
+        }
+        return;
+      }
+
+      const drpAction = e.target.closest('[data-drp-action]');
+      if (drpAction){
+        const action = drpAction.getAttribute('data-drp-action');
+        const noteId = drpAction.getAttribute('data-note');
+        const st = ensureDrpState(noteId);
+
+        if (action === 'shortcut'){
+          const type = drpAction.getAttribute('data-type');
+          const today = new Date();
+          let chosen = null;
+          switch (type) {
+            case 'today': chosen = today; break;
+            case 'yesterday':
+              chosen = new Date(today);
+              chosen.setDate(today.getDate() - 1);
+              break;
+          }
+          const s = chosen ? formatDateStr(chosen) : '';
+          setArrivalValue(noteId, s);
+          st.viewDate = chosen || today;
+          st.isOpen = false;
+          closeAllDrp();
+          renderDrp(noteId);
+          return;
+        }
+
+        if (action === 'nav'){
+          const nav = drpAction.getAttribute('data-nav');
+          const y = st.viewDate.getFullYear();
+          const m = st.viewDate.getMonth();
+          if (nav === 'prevYear') st.viewDate = new Date(y - 1, m, 1);
+          if (nav === 'nextYear') st.viewDate = new Date(y + 1, m, 1);
+          if (nav === 'prevMonth') st.viewDate = new Date(y, m - 1, 1);
+          if (nav === 'nextMonth') st.viewDate = new Date(y, m + 1, 1);
+          renderDrp(noteId);
+          return;
+        }
+
+        if (action === 'day'){
+          const dateStr = drpAction.getAttribute('data-date');
+          setArrivalValue(noteId, dateStr);
+          st.isOpen = false;
+          closeAllDrp();
+          renderDrp(noteId);
+          return;
+        }
+      }
+
+      // click outside menu/date-picker closes them
+      if (!e.target.closest('.more')) closeMenu();
+      if (!e.target.closest('.drp')) closeAllDrp();
+    });
+
+    window.addEventListener('resize', () => {
+      const noteId = getOpenDrpNoteId();
+      if (noteId) positionDrpPop(noteId);
+    });
+    document.addEventListener('scroll', () => {
+      const noteId = getOpenDrpNoteId();
+      if (noteId) positionDrpPop(noteId);
+    }, true);
+
+    notesBody.addEventListener('input', (e) => {
+      const input = e.target.closest('input[data-note][data-field]');
+      if (!input) return;
+      const noteId = input.getAttribute('data-note');
+      const field = input.getAttribute('data-field');
+      setNoteValue(noteId, field, input.value);
+    });
+
+    document.getElementById('modalClose').addEventListener('click', closeModal);
+    document.getElementById('modalCancel').addEventListener('click', closeModal);
+    document.getElementById('modalOk').addEventListener('click', () => {
+      // 预览页：只做关闭弹窗。若你需要“保存后回显到列表/标记状态”，我可以继续补上。
+      closeModal();
+    });
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && backdrop.classList.contains('open')) closeModal();
+    });
+
+    // ======= Init =======
+    renderTable();
+  </script>
+</body>
+</html>
+
+
